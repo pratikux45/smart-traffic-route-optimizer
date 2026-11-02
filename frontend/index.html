@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Traffic Route Optimizer | Free Open-Source Navigation</title>
+    <meta name="description" content="Find and compare driving routes using OpenStreetMap, OSRM, and traffic signal analysis. 100% free open-source route optimization.">
+    
+    <!-- Google Fonts: Inter & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    
+    <!-- FontAwesome for sleek navigation icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Application Stylesheet -->
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="dark-theme">
+    <div class="app-container">
+        <!-- HEADER -->
+        <header class="app-header">
+            <div class="logo-container">
+                <div class="logo-icon">
+                    <i class="fa-solid fa-traffic-light"></i>
+                </div>
+                <div class="logo-text">
+                    <h1>Smart Traffic Route Optimizer</h1>
+                    <p class="subtitle">Free OpenStreetMap + OSRM Routing • No API Keys Required</p>
+                </div>
+            </div>
+            <div class="header-badges">
+                <span class="badge badge-osm"><i class="fa-solid fa-map-location-dot"></i> OpenStreetMap</span>
+                <span class="badge badge-osrm"><i class="fa-solid fa-route"></i> OSRM Engine</span>
+                <span class="badge badge-overpass"><i class="fa-solid fa-layer-group"></i> Overpass Signals</span>
+            </div>
+        </header>
+
+        <!-- MAIN LAYOUT -->
+        <div class="main-layout">
+            <!-- MAP VIEWPORT -->
+            <div class="map-container">
+                <div id="map" class="leaflet-map"></div>
+                
+                <!-- MAP FLOATING PROGRESS OVERLAY -->
+                <div class="map-overlay-status" id="mapStatusOverlay" style="display: none;">
+                    <span id="mapStatusText"><i class="fa-solid fa-spinner fa-spin"></i> Calculating optimal routes...</span>
+                </div>
+
+                <!-- FLOATING MAP CONTROLS -->
+                <div class="map-floating-controls" id="mapFloatingControls">
+                    <!-- TRAFFIC SIGNAL TOGGLE -->
+                    <label class="map-toggle-btn" title="Toggle traffic signal visibility on map">
+                        <input type="checkbox" id="toggleSignalsCheckbox" checked>
+                        <i class="fa-solid fa-traffic-light text-amber"></i>
+                        <span>Traffic Signals</span>
+                        <span class="signal-count-badge" id="signalCountBadge" style="display:none;">0</span>
+                    </label>
+
+                    <!-- RE-CENTER MAP -->
+                    <button type="button" class="map-btn" id="fitBoundsBtn" title="Fit map to all routes" style="display:none;">
+                        <i class="fa-solid fa-expand"></i> Fit View
+                    </button>
+                </div>
+
+                <!-- COMPACT MAP LEGEND -->
+                <div class="map-legend" id="mapLegend" style="display: none;">
+                    <div class="legend-header"><i class="fa-solid fa-layer-group"></i> Map Legend</div>
+                    <div class="legend-grid">
+                        <div class="legend-item"><span class="legend-line line-optimized"></span> Optimized Route (Recommended)</div>
+                        <div class="legend-item"><span class="legend-line line-selected"></span> Selected Alternative</div>
+                        <div class="legend-item"><span class="legend-line line-alternative"></span> Other Alternative</div>
+                        <div class="legend-item"><span class="legend-icon text-amber"><i class="fa-solid fa-traffic-light"></i></span> Traffic Signal (Estimated)</div>
+                        <div class="legend-item"><span class="legend-icon text-green"><i class="fa-solid fa-location-dot"></i></span> Origin</div>
+                        <div class="legend-item"><span class="legend-icon text-red"><i class="fa-solid fa-flag-checkered"></i></span> Destination</div>
+                    </div>
+                </div>
+
+                <!-- DISCLAIMER FLOATING FOOTER ON MAP -->
+                <div class="map-disclaimer-banner">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span>Traffic signal timing is estimated (45s avg). OpenStreetMap provides signal locations, not live signal phases.</span>
+                </div>
+            </div>
+
+            <!-- RIGHT CONTROL PANEL -->
+            <aside class="control-panel">
+                <!-- ROUTE SETUP CARD -->
+                <div class="panel-card search-card">
+                    <h2 class="panel-title"><i class="fa-solid fa-location-arrow text-cyan"></i> Plan Route</h2>
+                    
+                    <form id="routeForm" onsubmit="return false;">
+                        <!-- STARTING LOCATION -->
+                        <div class="form-group">
+                            <label for="startInput"><i class="fa-solid fa-circle-dot text-green"></i> ORIGIN</label>
+                            <div class="input-wrapper">
+                                <input type="text" id="startInput" placeholder="Enter starting location or click map..." autocomplete="off">
+                                <button type="button" class="btn-clear" id="clearStartBtn" style="display:none;" title="Clear"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+                            <div class="suggestions-dropdown" id="startSuggestions"></div>
+                        </div>
+
+                        <!-- SWAP BUTTON -->
+                        <div class="swap-container">
+                            <button type="button" id="swapLocationsBtn" title="Swap Origin & Destination" class="btn-swap">
+                                <i class="fa-solid fa-arrows-up-down"></i> Swap
+                            </button>
+                        </div>
+
+                        <!-- DESTINATION LOCATION -->
+                        <div class="form-group">
+                            <label for="destInput"><i class="fa-solid fa-location-pin text-red"></i> DESTINATION</label>
+                            <div class="input-wrapper">
+                                <input type="text" id="destInput" placeholder="Enter destination or click map..." autocomplete="off">
+                                <button type="button" class="btn-clear" id="clearDestBtn" style="display:none;" title="Clear"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+                            <div class="suggestions-dropdown" id="destSuggestions"></div>
+                        </div>
+
+                        <!-- ROUTE OPTIMIZATION PREFERENCE -->
+                        <div class="form-group preference-group">
+                            <label><i class="fa-solid fa-sliders text-cyan"></i> OPTIMIZATION PRIORITY</label>
+                            <div class="preference-pills">
+                                <label class="pref-pill">
+                                    <input type="radio" name="routePreference" value="balanced" checked>
+                                    <span><i class="fa-solid fa-scale-balanced"></i> Balanced</span>
+                                </label>
+                                <label class="pref-pill">
+                                    <input type="radio" name="routePreference" value="fastest">
+                                    <span><i class="fa-solid fa-bolt"></i> Fastest</span>
+                                </label>
+                                <label class="pref-pill">
+                                    <input type="radio" name="routePreference" value="least_signals">
+                                    <span><i class="fa-solid fa-traffic-light"></i> Least Signals</span>
+                                </label>
+                                <label class="pref-pill">
+                                    <input type="radio" name="routePreference" value="shortest">
+                                    <span><i class="fa-solid fa-ruler-horizontal"></i> Shortest</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- SUBMIT BUTTON -->
+                        <button type="button" id="findRoutesBtn" class="btn-primary">
+                            <i class="fa-solid fa-compass"></i> FIND ROUTES
+                        </button>
+
+                        <!-- QUICK DEMO PRESET -->
+                        <div class="quick-presets">
+                            <span class="quick-presets-label"><i class="fa-solid fa-wand-magic-sparkles text-cyan"></i> Try Demo:</span>
+                            <button type="button" class="btn-preset-chip" id="demoNagpurBtn" title="Load Nagpur Station to Futala Lake">
+                                Nagpur Station <i class="fa-solid fa-arrow-right"></i> Futala Lake
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- ALERT / NOTIFICATION AREA -->
+                <div id="alertContainer" class="alert-container"></div>
+
+                <!-- ROUTE COMPARISON TABLE -->
+                <div class="panel-card comparison-card" id="comparisonContainer" style="display: none;">
+                    <h3 class="panel-subtitle"><i class="fa-solid fa-table-columns"></i> Route Alternatives Comparison</h3>
+                    <div class="table-responsive">
+                        <table class="comparison-table">
+                            <thead>
+                                <tr>
+                                    <th>Route</th>
+                                    <th>Dist</th>
+                                    <th>Drive</th>
+                                    <th>Signals</th>
+                                    <th>Delay</th>
+                                    <th>Est. Total</th>
+                                    <th>Score</th>
+                                </tr>
+                            </thead>
+                            <tbody id="comparisonTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ROUTE CARDS CONTAINER -->
+                <div class="routes-container" id="routesContainer">
+                    <div class="empty-state">
+                        <i class="fa-solid fa-route empty-icon"></i>
+                        <h3>Ready to Navigate</h3>
+                        <p>Search origin and destination to compare driving routes, detect traffic signals, and identify the optimal path.</p>
+                    </div>
+                </div>
+
+                <!-- METHODOLOGY INFO -->
+                <div class="panel-card info-card">
+                    <div class="info-header">
+                        <i class="fa-solid fa-circle-question"></i>
+                        <h4>How Optimization Works</h4>
+                    </div>
+                    <p class="info-text">
+                        Routes are evaluated using multi-metric normalization across <strong>travel duration</strong>, 
+                        <strong>traffic signal count</strong>, <strong>distance</strong>, and baseline traffic weighting.
+                    </p>
+                    <div class="delay-tooltip-box">
+                        <i class="fa-solid fa-traffic-light text-amber"></i>
+                        <span><strong>Estimated Signal Delay:</strong> Based on configured 45s average delay per signal location. Signals are matched within 30m of each route geometry.</span>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Application JS -->
+    <script src="/static/app.js"></script>
+</body>
+</html>
